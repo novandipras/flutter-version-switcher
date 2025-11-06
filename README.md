@@ -1,4 +1,4 @@
-# 🦋 Flutter Switcher for macOS
+# 🦋 Flutter Version Switcher for macOS
 
 Script bash interaktif untuk **mengelola dan mengganti versi Flutter SDK di macOS** tanpa perlu FVM.  
 Cocok buat developer yang ingin beberapa versi Flutter di satu mesin tanpa download berulang kali.
