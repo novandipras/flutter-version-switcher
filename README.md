@@ -23,11 +23,11 @@ Cocok buat developer yang ingin beberapa versi Flutter di satu mesin tanpa downl
 ```
 2. Beri izin eksekusi:
 ```bash
-  chmod +x flutter_switcher.sh
+  chmod +x flutter-switcher.sh
 ```
 3.  Jalankan:
 ```bash
-  ./flutter_switcher.sh
+  ./flutter-switcher.sh
 ```
 
 💡 Script ini otomatis menambahkan export PATH="$HOME/flutter/bin:$PATH" ke file konfigurasi shell (.zshrc / .bashrc) dan langsung me-reload PATH-nya.
