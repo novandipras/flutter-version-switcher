@@ -58,19 +58,54 @@ choose_chip() {
 
 # 🧭 Ensure PATH added to shell RC and reload it
 ensure_path() {
-  if ! grep -q 'flutter/bin' "$SHELL_RC" 2>/dev/null; then
-    echo "" >> "$SHELL_RC"
-    echo "# Flutter SDK (auto-added by flutter_switcher)" >> "$SHELL_RC"
-    echo "export PATH=\"\$HOME/flutter/bin:\$PATH\"" >> "$SHELL_RC"
-    success "✅ Menambahkan PATH ke $SHELL_RC"
+  local path_line='export PATH="$HOME/flutter/bin:$PATH"'
+  local added=false
+
+  # For zsh, also ensure .zprofile (login shells) and .zshrc (interactive)
+  if [[ $SHELL == *"zsh"* ]]; then
+    for rc in "$HOME/.zshrc" "$HOME/.zprofile"; do
+      touch "$rc" 2>/dev/null || true
+      if ! grep -q 'flutter/bin' "$rc" 2>/dev/null; then
+        echo "" >> "$rc"
+        echo "# Flutter SDK (auto-added by flutter_switcher)" >> "$rc"
+        echo "$path_line" >> "$rc"
+        success "✅ Menambahkan PATH ke $rc"
+        added=true
+      fi
+    done
   else
-    info "PATH Flutter sudah ada di $SHELL_RC"
+    if ! grep -q 'flutter/bin' "$SHELL_RC" 2>/dev/null; then
+      echo "" >> "$SHELL_RC"
+      echo "# Flutter SDK (auto-added by flutter_switcher)" >> "$SHELL_RC"
+      echo "$path_line" >> "$SHELL_RC"
+      success "✅ Menambahkan PATH ke $SHELL_RC"
+      added=true
+    else
+      info "PATH Flutter sudah ada di $SHELL_RC"
+    fi
   fi
 
-  # Reload shell config supaya langsung aktif
+  # Export into current session so the script (and immediate commands) can use flutter
+  export PATH="$HOME/flutter/bin:$PATH"
+
+  # Reload shell config supaya langsung aktif (best-effort)
   info "🔄 Memuat ulang konfigurasi shell..."
   # shellcheck disable=SC1090
-  source "$SHELL_RC" || warn "Tidak bisa source otomatis, buka terminal baru."
+  if ! source "$SHELL_RC" 2>/dev/null; then
+    if [[ $SHELL == *"zsh"* ]]; then
+      # try zsh files explicitly
+      # shellcheck disable=SC1091
+      source "$HOME/.zshrc" 2>/dev/null || source "$HOME/.zprofile" 2>/dev/null || warn "Tidak bisa source otomatis, buka terminal baru."
+    else
+      warn "Tidak bisa source otomatis, buka terminal baru."
+    fi
+  fi
+
+  if command -v flutter >/dev/null 2>&1; then
+    success "Flutter tersedia di PATH"
+  else
+    warn "Flutter masih belum terdeteksi dalam sesi ini. Coba buka terminal baru atau jalankan 'source' pada file RC Anda."
+  fi
 }
 
 # 🧰 Show installed versions
