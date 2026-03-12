@@ -7,6 +7,7 @@ set -euo pipefail
 
 FLUTTER_BASE="$HOME/flutter_versions"
 FLUTTER_LINK="$HOME/flutter"
+LISTED_VERSIONS=()
 
 # Deteksi shell dan RC file
 if [[ $SHELL == *"zsh"* ]]; then
@@ -27,6 +28,7 @@ error() { echo -e "\033[1;31m$1\033[0m"; }
 
 # 🌐 Flutter releases base URL
 BASE_URL="https://storage.googleapis.com/flutter_infra_release/releases"
+RELEASES_JSON_URL="$BASE_URL/releases_macos.json"
 
 # 💻 Detect architecture
 detect_arch() {
@@ -112,11 +114,13 @@ ensure_path() {
 list_versions() {
   echo
   info "📦 Versi Flutter yang tersedia di $FLUTTER_BASE:"
+  LISTED_VERSIONS=()
   local i=0
   for d in "$FLUTTER_BASE"/*/; do
     [ -d "$d" ] || continue
     ((i++))
-    echo "  $i) $(basename "$d")"
+    LISTED_VERSIONS+=("$(basename "$d")")
+    echo "  $i) ${LISTED_VERSIONS[i-1]}"
   done
   if [ "$i" -eq 0 ]; then
     warn "  (Belum ada versi Flutter terpasang)"
@@ -124,17 +128,58 @@ list_versions() {
   echo
 }
 
+# 🌐 Fetch Flutter releases index
+fetch_releases_json() {
+  curl -fsSL "$RELEASES_JSON_URL"
+}
+
+# 🔎 Get latest stable version from release index
+get_latest_stable_version() {
+  local json stable_hash stable_record stable_version
+  json=$(fetch_releases_json) || return 1
+
+  stable_hash=$(printf '%s' "$json" | tr -d '\n' | sed -n 's/.*"current_release"[[:space:]]*:[[:space:]]*{[^}]*"stable"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  [ -n "$stable_hash" ] || return 1
+
+  # Ambil object release dengan hash stable (toleran terhadap spasi/urutan field)
+  stable_record=$(printf '%s' "$json" | tr -d '\n' | sed -n "s/.*\\({[^{}]*\"hash\"[[:space:]]*:[[:space:]]*\"$stable_hash\"[^{}]*}\\).*/\\1/p")
+  [ -n "$stable_record" ] || return 1
+
+  stable_version=$(printf '%s' "$stable_record" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  [ -n "$stable_version" ] || return 1
+
+  printf '%s\n' "$stable_version"
+}
+
+# 🆕 Show newest stable Flutter version
+check_newest_version() {
+  local latest
+  latest=$(get_latest_stable_version) || {
+    error "❌ Gagal mengambil versi terbaru dari Flutter releases index (cek koneksi internet / format index)"
+    return
+  }
+  success "🆕 Versi Flutter stable terbaru: $latest"
+}
+
 # 🌀 Switch version
 switch_version() {
+  local choice ver_count selected_ver
   list_versions
-  read -rp "Masukkan nama versi (mis: flutter_3.24.3): " VER
-  if [ ! -d "$FLUTTER_BASE/$VER" ]; then
-    error "Versi tidak ditemukan: $FLUTTER_BASE/$VER"
+  ver_count=${#LISTED_VERSIONS[@]}
+  if [ "$ver_count" -eq 0 ]; then
     return
   fi
+
+  read -rp "Masukkan nomor urutan versi yang mau diaktifkan: " choice
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$ver_count" ]; then
+    warn "Nomor tidak valid. Pilih 1 sampai $ver_count."
+    return
+  fi
+
+  selected_ver="${LISTED_VERSIONS[choice-1]}"
   rm -rf "$FLUTTER_LINK"
-  ln -s "$FLUTTER_BASE/$VER" "$FLUTTER_LINK"
-  success "✅ Berhasil ganti ke: $VER"
+  ln -s "$FLUTTER_BASE/$selected_ver" "$FLUTTER_LINK"
+  success "✅ Berhasil ganti ke: $selected_ver"
   ensure_path
   "$FLUTTER_LINK/bin/flutter" --version || warn "Flutter belum terdeteksi. Coba buka terminal baru."
 }
@@ -153,10 +198,42 @@ add_local() {
 
 # 🌍 Download Flutter version
 download_version() {
+  local latest_stable="" raw_ver=""
   choose_chip
   echo
-  read -rp "Masukkan versi Flutter (contoh: 3.24.3, atau kosongkan untuk stable): " VER
-  [ -z "$VER" ] && VER="stable"
+
+  latest_stable=$(get_latest_stable_version) || true
+  if [ -n "$latest_stable" ]; then
+    info "Versi stable terbaru saat ini adalah: $latest_stable"
+  else
+    warn "Tidak bisa mengecek versi stable terbaru sekarang. Lanjut input manual."
+  fi
+
+  read -rp "Masukkan versi Flutter (contoh: 3.24.3 atau flutter_3.24.3, kosongkan untuk stable): " raw_ver
+  VER="${raw_ver#flutter_}"
+  VER="${VER#flutter-}"
+  VER="${VER#v}"
+
+  if [ -z "$VER" ]; then
+    if [ -n "$latest_stable" ]; then
+      VER="$latest_stable"
+    else
+      VER=$(get_latest_stable_version) || {
+        error "❌ Gagal menentukan versi stable terbaru"
+        return
+      }
+    fi
+    info "Menggunakan versi stable terbaru: $VER"
+  fi
+
+  if [ -d "$FLUTTER_BASE/$VER" ]; then
+    warn "Versi $VER sudah ada di $FLUTTER_BASE"
+    read -rp "Tetap download ulang? [y/N]: " REDOWNLOAD
+    case "$REDOWNLOAD" in
+      y|Y) ;;
+      *) info "Download dibatalkan."; return ;;
+    esac
+  fi
 
   case "$CHIP" in
     arm64)
@@ -168,7 +245,7 @@ download_version() {
   esac
 
   URL="$BASE_URL/stable/macos/$ARCHIVE"
-  DEST="$FLUTTER_BASE/flutter_$VER"
+  DEST="$FLUTTER_BASE/$VER"
   TMP_ZIP="/tmp/flutter_$VER.zip"
 
   echo
@@ -194,12 +271,14 @@ main_menu() {
     echo "1) Lihat versi Flutter terpasang"
     echo "2) Ganti versi Flutter aktif"
     echo "3) Tambah versi Flutter dari folder lokal"
-    echo "4) Download versi Flutter baru"
+    echo "4) Download versi Flutter"
     echo "5) Lihat versi Flutter aktif"
     echo "6) Jalankan 'flutter doctor'"
-    echo "7) Keluar"
+    echo "7) Cek versi Flutter stable terbaru"
+    echo "8) Keluar"
     echo "======================================================"
-    read -rp "Pilih opsi [1-7]: " CHOICE
+    read -rp "Pilih opsi [1-8]: " CHOICE
+    clear
     case "$CHOICE" in
       1) list_versions ;;
       2) switch_version ;;
@@ -207,7 +286,8 @@ main_menu() {
       4) download_version ;;
       5) "$FLUTTER_LINK/bin/flutter" --version 2>/dev/null || warn "Belum ada versi aktif" ;;
       6) "$FLUTTER_LINK/bin/flutter" doctor 2>/dev/null || warn "Belum ada versi aktif" ;;
-      7) exit 0 ;;
+      7) check_newest_version ;;
+      8) exit 0 ;;
       *) warn "Pilihan tidak valid." ;;
     esac
   done
