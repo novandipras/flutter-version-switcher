@@ -102,6 +102,10 @@ kembali ke menu utama.
 Pada menu unduh SDK (opsi 3), tekan **Esc** saat memilih chip, memasukkan
 versi, atau mengonfirmasi download ulang untuk membatalkan dan kembali.
 
+Pada menu impor SDK dan konfirmasi hapus, tekan **Esc** untuk kembali tanpa
+menjalankan perubahan. Layar hasil aksi menerima **Enter** atau **Esc**, dan
+**Esc** pada menu utama akan menutup Flutter Switcher.
+
 Tunggu beberapa detik, lalu jalankan:
 ```bash
 flutter --version

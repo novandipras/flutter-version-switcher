@@ -61,13 +61,27 @@ pause_for_menu() {
 }
 
 pause_for_versions() {
+  local key sequence
   echo
-  read -rp "Tekan Enter untuk kembali ke daftar versi..." _
+  echo "Tekan Enter atau Esc untuk kembali ke daftar versi..."
+  while true; do
+    IFS= read -rsn1 key || return
+    case "$key" in
+      '')
+        return
+        ;;
+      $'\x1b')
+        sequence=""
+        IFS= read -rsn2 -t 1 sequence || true
+        return
+        ;;
+    esac
+  done
 }
 
 read_input_or_escape() {
   local prompt="$1"
-  local key
+  local key sequence
   INPUT_VALUE=""
   printf "%s" "$prompt"
 
@@ -78,6 +92,8 @@ read_input_or_escape() {
         return 0
         ;;
       $'\x1b')
+        sequence=""
+        IFS= read -rsn2 -t 1 sequence || true
         echo
         ACTION_CANCELLED=true
         return 1
@@ -443,6 +459,7 @@ delete_selected_version() {
   local selected_ver="$1"
   local target="$FLUTTER_BASE/$selected_ver"
   local target_path active_path="" CONFIRM
+  ACTION_CANCELLED=false
 
   target_path=$(cd "$target" && pwd -P)
   if [ -e "$FLUTTER_LINK" ]; then
@@ -455,7 +472,10 @@ delete_selected_version() {
     return
   fi
 
-  read -rp "Yakin ingin menghapus $selected_ver? [y/N]: " CONFIRM
+  if ! read_input_or_escape "Yakin ingin menghapus $selected_ver? [y/N, Esc untuk kembali]: "; then
+    return
+  fi
+  CONFIRM="$INPUT_VALUE"
   case "$CONFIRM" in
     y|Y)
       rm -rf -- "$target"
@@ -492,6 +512,9 @@ manage_versions() {
       1) update_version "$selected_ver" ;;
       2) delete_selected_version "$selected_ver" ;;
     esac
+    if [ "$ACTION_CANCELLED" = true ]; then
+      continue
+    fi
     pause_for_versions
   done
 }
@@ -499,10 +522,17 @@ manage_versions() {
 # 🧱 Add local version manually
 add_local() {
   local SRC DEF_NAME NAME DEST
-  read -rp "Masukkan path ke folder Flutter lokal: " SRC
+  ACTION_CANCELLED=false
+  if ! read_input_or_escape "Masukkan path ke folder Flutter lokal (Esc untuk kembali): "; then
+    return
+  fi
+  SRC="$INPUT_VALUE"
   [ -d "$SRC" ] || { error "Folder tidak ditemukan"; return; }
   DEF_NAME=$(basename "$SRC")
-  read -rp "Nama folder di flutter_versions (default: $DEF_NAME): " NAME
+  if ! read_input_or_escape "Nama folder di flutter_versions (default: $DEF_NAME, Esc untuk kembali): "; then
+    return
+  fi
+  NAME="$INPUT_VALUE"
   NAME="${NAME:-$DEF_NAME}"
   DEST="$FLUTTER_BASE/$NAME"
   if [ -e "$DEST" ]; then
@@ -611,8 +641,13 @@ main_menu() {
     echo "  6) Cek Versi Stable Terbaru"
     echo "  7) Keluar"
     echo
-    read -rp "Pilih menu [1-7]: " CHOICE
     ACTION_CANCELLED=false
+    if ! read_input_or_escape "Pilih menu [1-7, Esc untuk keluar]: "; then
+      clear_screen
+      success "Flutter Switcher ditutup."
+      return 0
+    fi
+    CHOICE="$INPUT_VALUE"
     case "$CHOICE" in
       1)
         manage_versions
@@ -622,7 +657,9 @@ main_menu() {
         draw_header "IMPOR FLUTTER SDK DARI FOLDER"
         echo
         add_local
-        pause_for_menu
+        if [ "$ACTION_CANCELLED" = false ]; then
+          pause_for_menu
+        fi
         ;;
       3)
         clear_screen
