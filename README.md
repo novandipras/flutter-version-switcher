@@ -5,12 +5,14 @@ Cocok buat developer yang ingin beberapa versi Flutter di satu mesin tanpa downl
 
 ## ✨ Fitur Utama
 
-✅ Ganti versi Flutter aktif hanya dengan satu menu  
-✅ Download versi Flutter langsung dari server resmi  
+✅ Pilih Flutter SDK aktif melalui menu interaktif<br>
+✅ Unduh Flutter SDK langsung dari server resmi<br>
 ✅ Pilih chip Mac (Intel / Apple Silicon)  
 ✅ Tambah Flutter versi lokal ke koleksi  
+✅ Cek versi Flutter stable terbaru<br>
+✅ Hapus Flutter SDK yang tidak sedang aktif<br>
+✅ Tampilan terminal bersih dengan status versi aktif<br>
 ✅ Auto-update `$PATH` di `.zshrc` atau `.bashrc`  
-✅ Auto reload shell agar `flutter` langsung bisa digunakan  
 ✅ 100% tanpa FVM  
 
 ---
@@ -23,14 +25,17 @@ Cocok buat developer yang ingin beberapa versi Flutter di satu mesin tanpa downl
 ```
 2. Beri izin eksekusi:
 ```bash
-  chmod +x flutter-switcher.sh
+  chmod +x flutter-switcher.sh run.command
 ```
-3.  Jalankan:
+3. Jalankan dari Terminal:
 ```bash
   ./flutter-switcher.sh
 ```
 
-💡 Script ini otomatis menambahkan export PATH="$HOME/flutter/bin:$PATH" ke file konfigurasi shell (.zshrc / .bashrc) dan langsung me-reload PATH-nya.
+Double-click **run.command** di Finder untuk menjalankan Flutter Switcher.
+Saat memilih **Keluar**, jendela Terminal launcher akan ditutup otomatis.
+
+💡 Script ini otomatis menambahkan export PATH="$HOME/flutter_active/bin:$PATH" ke file konfigurasi shell (.zshrc / .bashrc).
 
 ## 📦 Struktur Folder
 
@@ -46,21 +51,24 @@ Setelah script dijalankan, struktur folder default di dalam $HOME akan seperti i
 ├── flutter_3.22.0/
 └── flutter_3.24.3/
 │
-└── flutter -> ~/flutter_versions/flutter_3.24.3  (symlink aktif)
+└── flutter_active -> ~/flutter_versions/flutter_3.24.3  (shortcut aktif)
 ```
 
-Folder ~/flutter adalah symlink ke versi Flutter yang sedang aktif.
+Folder `~/flutter_active` adalah symlink/shortcut ke versi Flutter yang sedang aktif.
 Command flutter di terminal akan membaca dari sini.
+
+Shortcut kompatibilitas `~/flutter` juga dibuat menuju `~/flutter_active`
+agar konfigurasi Android Studio atau terminal lama tetap berfungsi.
 
 ## 🧭 Menu Utama
 ```bash
 ================== Flutter Switcher ==================
-1) Lihat versi Flutter terpasang
-2) Ganti versi Flutter aktif
-3) Tambah versi Flutter dari folder lokal
-4) Download versi Flutter baru
-5) Lihat versi Flutter aktif
-6) Jalankan 'flutter doctor'
+1) Kelola Flutter SDK
+2) Impor Flutter SDK dari Folder
+3) Unduh Flutter SDK
+4) Lihat Informasi SDK Aktif
+5) Jalankan 'flutter doctor'
+6) Cek Versi Stable Terbaru
 7) Keluar
 ======================================================
 Pilih opsi [1-7]:
@@ -68,12 +76,12 @@ Pilih opsi [1-7]:
 
 Penjelasan Menu
 Opsi	Fungsi
-1)	Menampilkan semua versi Flutter di ~/flutter_versions/
-2)	Mengganti versi Flutter aktif (update symlink ~/flutter)
-3)	Tambahkan versi Flutter dari folder lokal
-4)	Unduh versi baru dari server Flutter sesuai chip Mac
-5)	Tampilkan versi Flutter aktif
-6)	Jalankan flutter doctor
+1)	Kelola SDK dengan ↑/↓: jadikan aktif, upgrade & sesuaikan nama folder, atau hapus
+2)	Impor Flutter SDK dari folder lokal
+3)	Unduh Flutter SDK dari server resmi sesuai chip Mac
+4)	Lihat informasi Flutter SDK yang sedang aktif
+5)	Jalankan flutter doctor
+6)	Cek versi Flutter stable terbaru dari server resmi
 7)	Keluar dari script
 
 ## 💻 Contoh Penggunaan
@@ -84,12 +92,15 @@ Jalankan:
 ./flutter_switcher.sh
 ```
 
-Pilih opsi 2
+Pilih opsi 1, pilih SDK dengan **↑/↓**, lalu tekan **Enter**. Tersedia aksi:
+**Jadikan SDK Aktif**, **Upgrade SDK dan Sesuaikan Nama Folder**, atau
+**Hapus SDK Ini**. Tekan **Esc** untuk kembali satu tingkat.
 
-Masukkan nama versi, contoh:
-```bash
-flutter_3.22.0
-```
+Pada layar informasi SDK aktif (opsi 4), tekan **Enter** atau **Esc** untuk
+kembali ke menu utama.
+
+Pada menu unduh SDK (opsi 3), tekan **Esc** saat memilih chip, memasukkan
+versi, atau mengonfirmasi download ulang untuk membatalkan dan kembali.
 
 Tunggu beberapa detik, lalu jalankan:
 ```bash
@@ -102,7 +113,7 @@ Hasilnya akan menunjukkan versi yang baru diaktifkan.
 
 Untuk menghapus semua versi Flutter dan symlink:
 ```bash
-rm -rf ~/flutter_versions ~/flutter
+rm -rf ~/flutter_versions ~/flutter_active ~/flutter
 ```
 
 Untuk menghapus baris PATH dari .zshrc:
